@@ -2,6 +2,7 @@
 
 #define CORNER_WEIGHT 10
 #define SIDE_WEIGHT 3
+#define MAXIMUM_MIN_VALUE 100
 #define MINIMUM_MAX_VALUE -100
 
 /*
@@ -62,72 +63,52 @@ Move *Player::doMove(Move *opponentsMove, int msLeft) {
         return NULL;
     }
 
-    //calculate with heuristic for all valid moves
-    //choose the move that gives the highest score
-    Move *maxMove;
-    int maxScore = MINIMUM_MAX_VALUE;
+    //uses a 2-ply minimax algorithm to choose the next move.
+    Move *maxMinMove;
+    int maxMinScore = MINIMUM_MAX_VALUE;
 
-    for (int x = 0; x < 8; x++) {
-        for (int y = 0; y < 8; y++) {
-            Move *m = new Move(x, y);
+    for (int x1 = 0; x1 < 8; x1++) {
+        for (int y1 = 0; y1 < 8; y1++) {
+
+            Move *m1 = new Move(x1, y1);
             
-            if (board->checkMove(m, side)) {
-                int score = calculateScore(m, side);
+            if (board->checkMove(m1, side)) {
+                Board *temp1 = board->copy();
+                temp1->doMove(m1, side);
+                int minScore = MAXIMUM_MIN_VALUE;
 
-                if (score > maxScore) {
-                    maxMove = m;
-                    maxScore = score;
+                if (!temp1->hasMoves(opponentsSide)) {
+                    minScore = temp1->count(side) - temp1->count(opponentsSide);
+                } else {
+                    for (int x2 = 0; x2 < 8; x2++) {
+                        for (int y2 = 0; y2 < 8; y2++) {
+
+                            Move *m2 = new Move(x2, y2);
+                            
+                            if (temp1->checkMove(m2, opponentsSide)) {
+                                Board *temp2 = temp1->copy();
+                                temp2->doMove(m2, opponentsSide);
+                                int score = temp2->count(side) - temp2->count(opponentsSide);
+                                if (score < minScore) {
+                                    minScore = score;
+                                }
+                            }
+                        }
+
+                    }
+                }
+
+                if (minScore > maxMinScore) {
+                    maxMinMove = m1;
+                    maxMinScore = minScore;
                 }
             }
+
         }
     }
 
-    board->doMove(maxMove, side);
-    return maxMove;
-}
-
-/**
- * Calculates a score for the given move using a heuristic function.
- * The base score is the number of the player's pieces minus the number of
- * the opponent's pieces (after the move). A corner piece gets a bonus,
- * but a piece adjacent to a corner gets a deduction. A side piece (that is
- * not adjacent to a corner) gets a smaller bonus, and a piece adjacent to
- * a side piece (that is not also adjacent to a corner and is not a side piece
- * itself) gets a smaller deduction.
- */
-int Player::calculateScore(Move *m, Side side) {
-    int x = m->getX();
-    int y = m->getY();
-    Board *temp = board->copy();
-    temp->doMove(m, side);
-
-    int score = temp->countBlack() - temp->countWhite();
-    if (side == WHITE) {
-        score = -score;
-    }
-
-    //corner and edge bonuses & penalties
-    if (x == 0 || x == 7) {
-        if (y == 0 || y == 7) {
-            score += CORNER_WEIGHT;
-        } else if (y == 1 || y == 6) {
-            score -= CORNER_WEIGHT;
-        } else {
-            score += SIDE_WEIGHT;
-        }
-    } else if (x == 1 || x == 6) {
-        if (y == 0 || y == 1 || y == 6 || y == 7) {
-            score -= CORNER_WEIGHT;
-        } else {
-            score -= SIDE_WEIGHT;
-        }
-    } else if (y == 0 || y == 7) {
-        score += SIDE_WEIGHT;
-    } else if (y == 1 || y == 6) {
-        score -= SIDE_WEIGHT;
-    }
-
-    return score;
+    board->doMove(maxMinMove, side);
+    return maxMinMove;
 }
 
 
