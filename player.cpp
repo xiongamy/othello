@@ -1,5 +1,9 @@
 #include "player.h"
 
+#define CORNER_WEIGHT 10
+#define SIDE_WEIGHT 5
+#define MINIMUM_MAX_VALUE -100
+
 /*
  * Constructor for the player; initialize everything here. The side your AI is
  * on (BLACK or WHITE) is passed in as "side". The constructor must finish 
@@ -45,26 +49,64 @@ Move *Player::doMove(Move *opponentsMove, int msLeft) {
     
     //process opponent's move
     Side opponentsSide;
-    if (side == BLACK) opponentsSide = WHITE;
-    else opponentsSide = BLACK;
+    if (side == BLACK) {
+        opponentsSide = WHITE;
+    } else {
+        opponentsSide = BLACK;
+    }
 
     board->doMove(opponentsMove, opponentsSide);
 
     //calculate own move
-    if (!board->hasMoves(side)) return NULL;
+    if (!board->hasMoves(side)) {
+        return NULL;
+    }
 
-    //do first legal move
+    //calculate with heuristic for all valid moves
+    //choose the move that gives the highest score
+    Move *maxMove;
+    int maxValue = MINIMUM_MAX_VALUE;
+    Board *temp = board->copy();
+
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
             Move *m = new Move(x, y);
+            
             if (board->checkMove(m, side)) {
-                board->doMove(m, side);
-                return m;
+                temp->doMove(m, side);
+                int score = temp->count(side) - temp->count(opponentsSide);
+
+                //corner and edge bonuses & penalties
+                if (x == 0 || x == 7) {
+                    if (y == 0 || y == 7) {
+                        score += CORNER_WEIGHT;
+                    } else if (y == 1 || y == 6) {
+                        score -= CORNER_WEIGHT;
+                    } else {
+                        score += SIDE_WEIGHT;
+                    }
+                } else if (x == 1 || x == 6) {
+                    if (y == 0 || y == 1 || y == 6 || y == 7) {
+                        score -= CORNER_WEIGHT;
+                    } else {
+                        score -= SIDE_WEIGHT;
+                    }
+                } else if (y == 0 || y == 7) {
+                    score += SIDE_WEIGHT;
+                } else if (y == 1 || y == 6) {
+                    score -= SIDE_WEIGHT;
+                }
+
+                if (score > maxValue) {
+                    maxMove = m;
+                    maxValue = score;
+                }
             }
         }
     }
 
-    return NULL;
+    board->doMove(maxMove, side);
+    return maxMove;
 }
 
 
