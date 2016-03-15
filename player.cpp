@@ -1,7 +1,8 @@
 #include "player.h"
 
-#define MAXIMUM_MIN_VALUE 100
-#define MINIMUM_MAX_VALUE -100
+#define SMALL_NUM -1000
+#define BIG_NUM 1000
+#define PLY 5
 
 /*
  * Constructor for the player; initialize everything here. The side your AI is
@@ -38,10 +39,13 @@ Player::~Player() {
 Move *Player::doMove(Move *opponentsMove, int msLeft) {
     //process opponent's move
     Side opponentsSide;
+    int isBlack;
     if (side == BLACK) {
         opponentsSide = WHITE;
+        isBlack = 1;
     } else {
         opponentsSide = BLACK;
+        isBlack = -1;
     }
 
     board->doMove(opponentsMove, opponentsSide);
@@ -51,53 +55,74 @@ Move *Player::doMove(Move *opponentsMove, int msLeft) {
         return NULL;
     }
 
-    //uses a 2-ply minimax algorithm to choose the next move.
-    Move *maxMinMove;
-    int maxMinScore = MINIMUM_MAX_VALUE;
+    //uses a minimax algorithm to choose the next move.
+    Move *maxMove;
+    int maxScore = SMALL_NUM;
 
-    for (int x1 = 0; x1 < 8; x1++) {
-        for (int y1 = 0; y1 < 8; y1++) {
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++) {
 
-            Move *m1 = new Move(x1, y1);
-            
-            if (board->checkMove(m1, side)) {
-                Board *temp1 = board->copy();
-                temp1->doMove(m1, side);
-                int minScore = MAXIMUM_MIN_VALUE;
+            Move *m = new Move(x, y);
+            if (board->checkMove(m, side)) {
+                int score = minimax(board, m, PLY - 1, isBlack);
 
-                if (!temp1->hasMoves(opponentsSide)) {
-                    minScore = temp1->count(side) - temp1->count(opponentsSide);
-                } else {
-                    for (int x2 = 0; x2 < 8; x2++) {
-                        for (int y2 = 0; y2 < 8; y2++) {
-
-                            Move *m2 = new Move(x2, y2);
-                            
-                            if (temp1->checkMove(m2, opponentsSide)) {
-                                Board *temp2 = temp1->copy();
-                                temp2->doMove(m2, opponentsSide);
-                                int score = temp2->count(side) - temp2->count(opponentsSide);
-                                if (score < minScore) {
-                                    minScore = score;
-                                }
-                            }
-                        }
-
-                    }
-                }
-
-                if (minScore > maxMinScore) {
-                    maxMinMove = m1;
-                    maxMinScore = minScore;
+                if (score > maxScore) {
+                    maxMove = m;
+                    maxScore = score;
                 }
             }
-
         }
     }
 
-    board->doMove(maxMinMove, side);
-    return maxMinMove;
+    board->doMove(maxMove, side);
+    return maxMove;
 }
 
+int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
+    Side side;
+    Side opponentsSide;
+    if (isBlack == 1) {
+        side = BLACK;
+        opponentsSide = WHITE;
+    } else {
+        side = WHITE;
+        opponentsSide = BLACK;
+    }
+    Board *newBoard = board->copy();
+    newBoard->doMove(move, side);
 
+    if (depth <= 0 || newBoard->isDone()) {
+        return (newBoard->countBlack() - newBoard->countWhite()) * isBlack;
+    }
+
+    int multiplier = -1;
+
+    //if this leaves the opponent with no moves, but the game isn't over yet
+    if (!newBoard->hasMoves(opponentsSide)) {
+        if (depth < 2) {
+            return (newBoard->countBlack() - newBoard->countWhite()) * isBlack;
+        } else {
+            isBlack *= -1;
+            depth--;
+            opponentsSide = side;
+            multiplier *= -1;
+        }
+    }
+
+    int maxScore = SMALL_NUM;
+
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++) {
+            Move *nextMove = new Move(x, y);
+            
+            if (newBoard->checkMove(nextMove, opponentsSide)) {
+                int score = minimax(newBoard, nextMove, depth - 1, -1 * isBlack);
+                if (score > maxScore) {
+                    maxScore = score;
+                }
+            }
+        }
+    }
+    return multiplier * maxScore;
+}
 
