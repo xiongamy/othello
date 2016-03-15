@@ -4,6 +4,10 @@
 #define BIG_NUM 1000
 #define PLY 5
 
+#define CORNER_WEIGHT 15
+#define SIDE_WEIGHT 5
+#define GAME_OVER_MULTIPLIER 2
+
 /*
  * Constructor for the player; initialize everything here. The side your AI is
  * on (BLACK or WHITE) is passed in as "side". The constructor must finish 
@@ -78,6 +82,11 @@ Move *Player::doMove(Move *opponentsMove, int msLeft) {
     return maxMove;
 }
 
+/**
+ * Uses a minimax algorithm to assign the maximum min score for the given
+ * move on the given board. If the player is black, isBlack = 1, and if the player
+ * is white, isBlack = -1. move must be a valid move on the board board.
+ */
 int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
     Side side;
     Side opponentsSide;
@@ -91,8 +100,11 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
     Board *newBoard = board->copy();
     newBoard->doMove(move, side);
 
-    if (depth <= 0 || newBoard->isDone()) {
-        return (newBoard->countBlack() - newBoard->countWhite()) * isBlack;
+    if (depth <= 0) {
+        return calculateScore(move, side);
+    }
+    if (newBoard->isDone()) {
+        return calculateScore(move, side) * GAME_OVER_MULTIPLIER;
     }
 
     int multiplier = -1;
@@ -100,7 +112,7 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
     //if this leaves the opponent with no moves, but the game isn't over yet
     if (!newBoard->hasMoves(opponentsSide)) {
         if (depth < 2) {
-            return (newBoard->countBlack() - newBoard->countWhite()) * isBlack;
+            return calculateScore(move, side) * GAME_OVER_MULTIPLIER;
         } else {
             isBlack *= -1;
             depth--;
@@ -126,3 +138,46 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
     return multiplier * maxScore;
 }
 
+/**
+ * Calculates a score for the given move using a heuristic function.
+ * The base score is the number of the player's pieces minus the number of
+ * the opponent's pieces (after the move). A corner piece gets a bonus,
+ * but a piece adjacent to a corner gets a deduction. A side piece (that is
+ * not adjacent to a corner) gets a smaller bonus, and a piece adjacent to
+ * a side piece (that is not also adjacent to a corner and is not a side piece
+ * itself) gets a smaller deduction.
+ */
+int Player::calculateScore(Move *m, Side side) {
+    int x = m->getX();
+    int y = m->getY();
+    Board *temp = board->copy();
+    temp->doMove(m, side);
+
+    int score = temp->countBlack() - temp->countWhite();
+    if (side == WHITE) {
+        score = -score;
+    }
+
+    //corner and edge bonuses & penalties
+    if (x == 0 || x == 7) {
+        if (y == 0 || y == 7) {
+            score += CORNER_WEIGHT;
+        } else if (y == 1 || y == 6) {
+            score -= CORNER_WEIGHT;
+        } else {
+            score += SIDE_WEIGHT;
+        }
+    } else if (x == 1 || x == 6) {
+        if (y == 0 || y == 1 || y == 6 || y == 7) {
+            score -= CORNER_WEIGHT;
+        } else {
+            score -= SIDE_WEIGHT;
+        }
+    } else if (y == 0 || y == 7) {
+        score += SIDE_WEIGHT;
+    } else if (y == 1 || y == 6) {
+        score -= SIDE_WEIGHT;
+    }
+
+    return score;
+}
