@@ -4,8 +4,8 @@
 #define BIG_NUM 1000
 #define PLY 5
 
-#define CORNER_WEIGHT 15
-#define SIDE_WEIGHT 5
+#define CORNER_WEIGHT 20
+#define SIDE_WEIGHT 10
 #define GAME_OVER_MULTIPLIER 2
 
 /*
@@ -99,12 +99,17 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
     }
     Board *newBoard = board->copy();
     newBoard->doMove(move, side);
+    int maxScore = SMALL_NUM;
 
-    if (depth <= 0) {
-        return calculateScore(move, side);
-    }
-    if (newBoard->isDone()) {
-        return calculateScore(move, side) * GAME_OVER_MULTIPLIER;
+    if (depth <= 0 || newBoard->isDone()) {
+        maxScore =  (newBoard->countBlack() - newBoard->countWhite());
+        maxScore *= isBlack;
+        maxScore += calculateEdgeWeights(move);
+
+        if (newBoard->isDone()) {
+            maxScore *= GAME_OVER_MULTIPLIER;
+        }
+        return maxScore;
     }
 
     int multiplier = -1;
@@ -112,7 +117,11 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
     //if this leaves the opponent with no moves, but the game isn't over yet
     if (!newBoard->hasMoves(opponentsSide)) {
         if (depth < 2) {
-            return calculateScore(move, side) * GAME_OVER_MULTIPLIER;
+            maxScore =  (newBoard->countBlack() - newBoard->countWhite());
+            maxScore *= isBlack;
+            maxScore += calculateEdgeWeights(move);
+            maxScore *= GAME_OVER_MULTIPLIER;
+            return maxScore;
         } else {
             isBlack *= -1;
             depth--;
@@ -121,14 +130,13 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
         }
     }
 
-    int maxScore = SMALL_NUM;
-
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
             Move *nextMove = new Move(x, y);
             
             if (newBoard->checkMove(nextMove, opponentsSide)) {
                 int score = minimax(newBoard, nextMove, depth - 1, -1 * isBlack);
+                score += calculateEdgeWeights(move);
                 if (score > maxScore) {
                     maxScore = score;
                 }
@@ -139,24 +147,16 @@ int Player::minimax(Board *board, Move *move, int depth, int isBlack) {
 }
 
 /**
- * Calculates a score for the given move using a heuristic function.
- * The base score is the number of the player's pieces minus the number of
- * the opponent's pieces (after the move). A corner piece gets a bonus,
- * but a piece adjacent to a corner gets a deduction. A side piece (that is
- * not adjacent to a corner) gets a smaller bonus, and a piece adjacent to
- * a side piece (that is not also adjacent to a corner and is not a side piece
- * itself) gets a smaller deduction.
+ * Calculates the edge and corner bonuses for a given move. A corner piece
+ * gets a bonus, but a piece adjacent to a corner gets a deduction. A side
+ * piece (that is not adjacent to a corner) gets a smaller bonus, and a piece
+ * adjacent to a side piece (that is not also adjacent to a corner and is not a
+ * side piece itself) gets a smaller deduction.
  */
-int Player::calculateScore(Move *m, Side side) {
+int Player::calculateEdgeWeights(Move *m) {
     int x = m->getX();
     int y = m->getY();
-    Board *temp = board->copy();
-    temp->doMove(m, side);
-
-    int score = temp->countBlack() - temp->countWhite();
-    if (side == WHITE) {
-        score = -score;
-    }
+    int score = 0;
 
     //corner and edge bonuses & penalties
     if (x == 0 || x == 7) {

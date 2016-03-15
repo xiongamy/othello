@@ -14,7 +14,7 @@ public:
     
     Move *doMove(Move *opponentsMove, int msLeft);
     int minimax(Board *board, Move *move, int depth, int isBlack);
-    int calculateScore(Move *m, Side side);
+    int calculateEdgeWeights(Move *m);
 
     // Flag to tell if the player is running within the test_minimax context
     bool testingMinimax;
